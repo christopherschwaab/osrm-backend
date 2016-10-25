@@ -1,7 +1,9 @@
 #ifndef OSRM_EXTRACTOR_GUIDANCE_INTERSECTION_HPP_
 #define OSRM_EXTRACTOR_GUIDANCE_INTERSECTION_HPP_
 
+#include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "extractor/guidance/turn_instruction.hpp"

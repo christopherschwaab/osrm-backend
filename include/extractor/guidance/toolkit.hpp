@@ -233,6 +233,31 @@ inline std::uint8_t getLaneCountAtIntersection(const NodeID intersection_node,
     return lanes;
 }
 
+/* Angles in OSRM are expressed in the range of [0,360). During calculations, we might violate this
+ * range via offsets. This function helps to ensure the range is kept. */
+inline double restrictAngleToValidRange(const double angle)
+{
+    if (angle < 0)
+        return restrictAngleToValidRange(angle + 360.);
+    else if (angle > 360)
+        return restrictAngleToValidRange(angle - 360.);
+    else
+        return angle;
+}
+
+// finds the angle between two angles, based on the minum difference between the two
+inline double angleBetween(const double lhs, const double rhs)
+{
+    const auto difference = std::abs(lhs - rhs);
+    const auto is_clockwise_difference = difference <= 180;
+    const auto angle_between_candidate = .5 * (lhs + rhs);
+
+    if (is_clockwise_difference)
+        return angle_between_candidate;
+    else
+        return restrictAngleToValidRange(angle_between_candidate + 180);
+};
+
 } // namespace guidance
 } // namespace extractor
 } // namespace osrm
