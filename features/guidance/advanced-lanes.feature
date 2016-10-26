@@ -10,8 +10,11 @@ Feature: Turn Lane Guidance
         Given the node map
             """
                           e
-            a     b       c g
-                          d
+                          .
+            a ... b ..... c . g
+                    `     .
+                     `... d
+                          .
                           f
             """
 
