@@ -134,13 +134,13 @@ operator()(const NodeID /*nid*/, const EdgeID source_edge_id, Intersection inter
     if (intersection_node_id == next->node)
         return intersection;
 
-    std::unordered_set<NameID> target_road_names;
+    std::vector<NameID> target_road_name_ids;
+    target_road_name_ids.reserve(next->intersection.size());
 
     for (const auto &road : next->intersection)
     {
         const auto &target_data = node_based_graph.GetEdgeData(road.eid);
-        // TODO: this has to insert names (strings) to check requiresNameAnnounced
-        target_road_names.insert(target_data.name_id);
+        target_road_name_ids.push_back(target_data.name_id);
     }
 
     // TODO: remove geojson debugging
@@ -284,9 +284,19 @@ operator()(const NodeID /*nid*/, const EdgeID source_edge_id, Intersection inter
         {
             const auto &candidate_data = node_based_graph.GetEdgeData(candidate_road.eid);
 
-            // Name mismatch
-            // TODO: this has to check requiresNameAnnounced as soon as we store strings
-            if (target_road_names.count(candidate_data.name_id) == 0)
+            // Name mismatch: check roads at `c` and `d` for same name
+            const auto name_mismatch = [&](const NameID road_name_id) {
+                return util::guidance::requiresNameAnnounced(road_name_id,              //
+                                                             candidate_data.name_id,    //
+                                                             name_table,                //
+                                                             street_name_suffix_table); //
+            };
+
+            const auto candidate_road_name_mismatch = std::all_of(begin(target_road_name_ids), //
+                                                                  end(target_road_name_ids),   //
+                                                                  name_mismatch);              //
+
+            if (candidate_road_name_mismatch)
                 continue;
 
             if (node_based_graph.GetTarget(candidate_road.eid) == next->node)

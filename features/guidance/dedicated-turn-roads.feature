@@ -649,3 +649,61 @@ Feature: Slipways and Dedicated Turn Lanes
        When I route I should get
             | waypoints | route          | turns                    |
             | s,f       | sabc,dbef,dbef | depart,turn right,arrive |
+
+    Scenario: Sliproad with same-ish names
+        Given the node map
+            """
+                    d
+                    .
+          s . a . . b . . c
+               `    .
+                 .  e
+                  . .
+                  . .
+                  . .
+                   ..
+                    .
+                    f
+                    .
+                    t
+            """
+
+        And the ways
+            | nodes | highway | name     | ref   |
+            | sabc  | primary | main     |       |
+            | dbe   | primary | crossing | r0    |
+            | eft   | primary | crossing | r0;r1 |
+            | af    | primary | sliproad |       |
+
+       When I route I should get
+            | waypoints | route                  | turns                    |
+            | s,t       | main,crossing,crossing | depart,turn right,arrive |
+
+    Scenario: Not a Sliproad, name mismatch
+        Given the node map
+            """
+                    d
+                    .
+          s . a . . b . . c
+               `    .
+                 .  e
+                  . .
+                  . .
+                  . .
+                   ..
+                    .
+                    f
+                    .
+                    t
+            """
+
+        And the ways
+            | nodes | highway | name     |
+            | sabc  | primary | main     |
+            | dbe   | primary | top      |
+            | eft   | primary | bottom   |
+            | af    | primary | sliproad |
+
+       When I route I should get
+            | waypoints | route                       | turns                                  |
+            | s,t       | main,sliproad,bottom,bottom | depart,turn right,turn straight,arrive |
