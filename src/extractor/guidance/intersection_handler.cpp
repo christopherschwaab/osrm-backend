@@ -499,7 +499,7 @@ std::size_t IntersectionHandler::findObviousTurn(const EdgeID via_edge,
         // continue roads exist
         // best_continue is the first sorted way that shares the same name as the in way
         const auto sameName = [&](const out_way &lhs) {
-            return lhs.same_name_id == true && lhs.entry_allowed && lhs.same_or_higher_priority;
+            return lhs.same_name_id == true && lhs.entry_allowed;
         };
         const auto End = end(out_ways);
         const auto best_continue_it = std::find_if(begin(out_ways), End, sameName);
