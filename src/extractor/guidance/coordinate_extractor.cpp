@@ -70,9 +70,15 @@ CoordinateExtractor::GetCoordinateAlongRoad(const NodeID intersection_node,
     if (coordinates.size() <= 2)
         return coordinates.back();
 
+    // due to repeated coordinates / smaller offset errors we skip over the very first parts of the
+    // coordinate set to add a small level of fault tolerance
+    const constexpr double distance_to_skip_over_due_to_coordinate_inaccuracies = 2;
+
     // fallback, mostly necessary for dead ends
     if (intersection_node == to_node)
-        return TrimCoordinatesToLength(std::move(coordinates), 5).back();
+        return TrimCoordinatesToLength(std::move(coordinates),
+                                       distance_to_skip_over_due_to_coordinate_inaccuracies)
+            .back();
 
     // If this reduction leaves us with only two coordinates, the turns/angles are represented in a
     // valid way. Only curved roads and other difficult scenarios will require multiple coordinates.
@@ -83,7 +89,9 @@ CoordinateExtractor::GetCoordinateAlongRoad(const NodeID intersection_node,
 
     // roundabouts, check early to avoid other costly checks
     if (turn_edge_data.roundabout)
-        return TrimCoordinatesToLength(std::move(coordinates), 2).back();
+        return TrimCoordinatesToLength(std::move(coordinates),
+                                       distance_to_skip_over_due_to_coordinate_inaccuracies)
+            .back();
 
     const util::Coordinate turn_coordinate =
         node_coordinates[traversed_in_reverse ? to_node : intersection_node];
@@ -93,8 +101,11 @@ CoordinateExtractor::GetCoordinateAlongRoad(const NodeID intersection_node,
     if (turn_edge_data.road_classification.IsLowPriorityRoadClass())
     {
         // Look ahead a tiny bit. Low priority road classes can be modelled fairly distinct in the
-        // very first part of the road
-        coordinates = TrimCoordinatesToLength(std::move(coordinates), 10);
+        // very first part of the road. It's less accurate than searching for offsets but the models
+        // contained in OSM are just to strange to capture fully. Using the fallback here we try to
+        // do the best of what we can.
+        coordinates =
+            TrimCoordinatesToLength(std::move(coordinates), LOOKAHEAD_DISTANCE_WITHOUT_LANES);
         if (coordinates.size() > 2 &&
             util::coordinate_calculation::haversineDistance(turn_coordinate, coordinates[1]) <
                 ASSUMED_LANE_WIDTH)
@@ -252,7 +263,8 @@ CoordinateExtractor::GetCoordinateAlongRoad(const NodeID intersection_node,
         segment_distances.resize(coordinates.size());
         segment_distances.back() = offset;
         const auto vector_head = coordinates.back();
-        coordinates = TrimCoordinatesToLength(std::move(coordinates), 0.5*offset, segment_distances);
+        coordinates =
+            TrimCoordinatesToLength(std::move(coordinates), 0.5 * offset, segment_distances);
         BOOST_ASSERT(coordinates.size() >= 2);
         return GetCorrectedCoordinate(turn_coordinate, coordinates.back(), vector_head);
     }
@@ -488,7 +500,7 @@ bool CoordinateExtractor::IsCurve(const std::vector<util::Coordinate> &coordinat
 
     if ((distance_to_max_deviation <= 0.35 * segment_length ||
          maximum_deviation < std::max(0.3 * considered_lane_width, 0.5 * ASSUMED_LANE_WIDTH)) &&
-        segment_length > 10)
+        segment_length > LOOKAHEAD_DISTANCE_WITHOUT_LANES)
         return false;
 
     BOOST_ASSERT(coordinates.size() >= 3);
@@ -607,6 +619,8 @@ std::vector<double>
 CoordinateExtractor::PrepareLengthCache(const std::vector<util::Coordinate> &coordinates,
                                         const double limit) const
 {
+    BOOST_ASSERT(!coordinates.empty());
+    BOOST_ASSERT(limit >= 0);
     std::vector<double> segment_distances;
     segment_distances.reserve(coordinates.size());
     segment_distances.push_back(0);
@@ -631,6 +645,7 @@ CoordinateExtractor::TrimCoordinatesToLength(std::vector<util::Coordinate> coord
                                              const std::vector<double> &length_cache) const
 {
     BOOST_ASSERT(coordinates.size() >= 2);
+    BOOST_ASSERT(desired_length >= 0);
 
     double distance_to_current_coordinate = 0;
     std::size_t coordinate_index = 0;
@@ -693,7 +708,7 @@ CoordinateExtractor::TrimCoordinatesToLength(std::vector<util::Coordinate> coord
             // remember the accumulated distance
             distance_to_current_coordinate = distance_to_next_coordinate;
         }
-        BOOST_ASSERT(coordinates.size());
+        BOOST_ASSERT(!coordinates.empty());
         return coordinates;
     }
 }
@@ -829,6 +844,7 @@ std::vector<util::Coordinate>
 CoordinateExtractor::TrimCoordinatesByLengthFront(std::vector<util::Coordinate> coordinates,
                                                   const double desired_length) const
 {
+    BOOST_ASSERT(desired_length >= 0);
     double distance_to_index = 0;
     std::size_t index = 0;
     for (std::size_t next_index = 1; next_index < coordinates.size(); ++next_index)
